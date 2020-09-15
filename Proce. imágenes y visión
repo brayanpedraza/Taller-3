@@ -1,0 +1,153 @@
+import numpy as np
+import cv2
+import math
+import time
+from time import time
+# Press the green button in the gutter to run the script.
+if __name__ == '__main__':
+    def Gauss(image):  # función para poner ruido gaussiano a imágenes
+        row, col = image.shape
+        mean = 0
+        var = 0.002
+        sigma = var ** 0.5
+        gauss = np.random.normal(mean, sigma, (row, col))
+        gauss = gauss.reshape(row, col)
+        noisy = image + gauss
+        return noisy
+
+    def pys(image):  # funcion para poner ruido p&s a imágenes
+        row, col = image.shape
+        s_vs_p = 0.5
+        amount = 0.05
+        out = np.copy(image)
+        # Salt mode
+        num_salt = np.ceil(amount * image.size * s_vs_p)
+        coords = [np.random.randint(0, i - 1, int(num_salt))
+                  for i in image.shape]
+        out[tuple(coords)] = 1
+
+        # Pepper mode
+        num_pepper = np.ceil(amount * image.size * (1. - s_vs_p))
+        coords = [np.random.randint(0, i - 1, int(num_pepper))
+                  for i in image.shape]
+        out[tuple(coords)] = 0
+        return out
+
+    path_file = r"C:\Users\Brayan Pedraza\Downloads\imagenes procesamiento\lena.png"  # aquí se debe poner la dirección de la imagen, y después del último slash, se pone el nombre completo de la imagen
+    lena = cv2.imread(path_file)
+    lena_gray = cv2.cvtColor(lena, cv2.COLOR_BGR2GRAY)  # se convierte a grises la imagen
+    lena_gauss_noisy = Gauss(lena_gray)  # se aplica ruido gaussiano
+    lena_gauss_noisy = (255 * lena_gauss_noisy).astype(np.uint8)  # lena con ruido gaussiano
+    lena_syp_noisy = pys(lena_gray)  # se aplica ruido p&s
+    lena_syp_noisy = (255 * lena_syp_noisy).astype(np.uint8)  # lena con ruido s&p
+    cv2.imshow("Image gauss noisy", lena_gauss_noisy)
+    cv2.waitKey(0)
+    cv2.imshow("Image s&p noisy", lena_syp_noisy)
+    cv2.waitKey(0)
+    #cv2.imshow("Image gray", lena_gray)
+    #cv2.waitKey(0)
+    # a) Filtro Gaussiano de 7x7 con sigma = 1.5 (low-pass)
+    N=7  # tamaño ventana
+    start_time_gauss = time()  # funcion para medir el tiempo actual de ejecucion
+    image_gauss_lp_gauss = cv2.GaussianBlur(lena_gauss_noisy, (N, N), 1.5, 1.5)
+    final_time_gauss = time() # funcion para medir el tiempo actual de ejecucion
+    image_gauss_lp_syp = cv2.GaussianBlur(lena_syp_noisy, (N, N), 1.5, 1.5)
+    image_gauss_noise_a = cv2.absdiff(lena_gauss_noisy, image_gauss_lp_gauss)  # Para poder calcular la estimación de ruido gauss
+    image_syp_noise_a = cv2.absdiff(lena_syp_noisy,image_gauss_lp_syp)  # Para poder calcular la estimación de ruido syp
+    #sum_image_gauss_noise_a = np.sum(image_gauss_noise_a)
+    #sum_image_syp_noise_a = np.sum(image_syp_noise_a)
+    mean_image_gauss_noise_a = np.mean(image_gauss_noise_a)  # media de estimación de ruido gauss
+    mean_image_syp_noise_a = np.mean(image_syp_noise_a)  # media de estimación de ruido p&s
+    print(f"la estimación de ruido para lena con ruido gaussiano con filtro gauss es :{mean_image_gauss_noise_a}")
+    print(f"la estimación de ruido para lena con ruido syp con filtro gauss es :{mean_image_syp_noise_a}")
+    image_gauss_noise_2a = cv2.absdiff(image_gauss_lp_gauss, lena_gray)  # Para poder calcular el error cuadrático medio de ruido gauss
+    image_syp_noise_2a = cv2.absdiff(image_gauss_lp_syp, lena_gray) # Para poder calcular el error cuadrático medio de ruido syp
+    row, col = lena_gray.shape
+    ECM_gauss = (np.sum(pow(image_gauss_noise_2a, 2)))/(row*col)
+    ECM_syp = (np.sum(pow(image_syp_noise_2a, 2)))/(row*col)
+    sqrt_ECM_gauss_gauss = math.sqrt(ECM_gauss)  # error cuadrático medio gauss
+    sqrt_ECM_syp_gauss = math.sqrt(ECM_syp)  # error cuadrático medio p&S
+    tiempo_gauss =  final_time_gauss-start_time_gauss  # diferencia de tiempos, que nos da el tiempo de ejecucion del filtro
+    print(f"El error cuadrático medio para lena con ruido gaussiano con filtro gauss es :{sqrt_ECM_gauss_gauss}")
+    print(f"El error cuadrático medio para lena con ruido syp con filtro gauss es :{sqrt_ECM_syp_gauss}")
+    cv2.imshow("Image filtro gauss - gauss", image_gauss_lp_gauss)
+    cv2.waitKey(0)
+    cv2.imshow("Image filtro gauss - s&p", image_gauss_lp_syp)
+    cv2.waitKey(0)
+    # b) Filtro mediana de 7x7
+    start_time_median = time()
+    image_gauss_median = cv2.medianBlur(lena_gauss_noisy, N)
+    final_time_median = time()
+    image_syp_median = cv2.medianBlur(lena_syp_noisy, N)
+    image_gauss_noise_b = cv2.absdiff(lena_gauss_noisy, image_gauss_median)  # Para poder calcular la estimación de ruido gauss
+    image_syp_noise_b = cv2.absdiff(lena_syp_noisy,image_syp_median)  # Para poder calcular la estimación de ruido syp
+    mean_image_gauss_noise_b = np.mean(image_gauss_noise_b)
+    mean_image_syp_noise_b = np.mean(image_syp_noise_b)
+    image_gauss_noise_2b = cv2.absdiff(image_gauss_median, lena_gray) # Para poder calcular el error cuadrático medio de ruido gauss
+    image_syp_noise_2b = cv2.absdiff(image_syp_median, lena_gray) # Para poder calcular el error cuadrático medio de ruido syp
+    ECM_gauss = (np.sum(pow(image_gauss_noise_2b, 2))) / (row * col)
+    ECM_syp = (np.sum(pow(image_syp_noise_2b, 2))) / (row * col)
+    sqrt_ECM_gauss_median = math.sqrt(ECM_gauss)
+    sqrt_ECM_syp_median = math.sqrt(ECM_syp)
+    tiempo_median = final_time_median - start_time_median
+    print(f"El error cuadrático medio para lena con ruido gaussiano con filtro mediana es :{sqrt_ECM_gauss_median}")
+    print(f"El error cuadrático medio para lena con ruido syp con filtro mediana es :{sqrt_ECM_syp_median}")
+    print(f"la estimación de ruido para lena con ruido gaussiano con filtro mediana es :{mean_image_gauss_noise_b}")
+    print(f"la estimación de ruido para lena con ruido syp con filtro mediana es :{mean_image_syp_noise_b}")
+    cv2.imshow("Image filtro mediana - gauss", image_gauss_median)
+    cv2.waitKey(0)
+    cv2.imshow("Image filtro mediana - s&p", image_syp_median)
+    cv2.waitKey(0)
+    # c) Filtro bilateral con d=15, sigmaColor = sigmaSpace = 25.
+    start_time_bilateral = time()
+    image_gauss_bilateral = cv2.bilateralFilter(lena_gauss_noisy, 15, 25, 25)
+    final_time_bilateral = time()
+    image_syp_bilateral = cv2.bilateralFilter(lena_syp_noisy, 15, 25, 25)
+    image_gauss_noise_c = cv2.absdiff(lena_gauss_noisy, image_gauss_bilateral)  # Para poder calcular la estimación de ruido gauss
+    image_syp_noise_c = cv2.absdiff(lena_syp_noisy,image_syp_bilateral)  # Para poder calcular la estimación de ruido syp
+    mean_image_gauss_noise_c = np.mean(image_gauss_noise_c)
+    mean_image_syp_noise_c = np.mean(image_syp_noise_c)
+    image_gauss_noise_2c = cv2.absdiff(image_gauss_bilateral,lena_gray)  # Para poder calcular el error cuadrático medio de ruido gauss
+    image_syp_noise_2c = cv2.absdiff(image_syp_bilateral,lena_gray)  # Para poder calcular el error cuadrático medio de ruido syp
+    ECM_gauss = (np.sum(pow(image_gauss_noise_2c, 2))) / (row * col)
+    ECM_syp = (np.sum(pow(image_syp_noise_2c, 2))) / (row * col)
+    sqrt_ECM_gauss_bilateral = math.sqrt(ECM_gauss)
+    sqrt_ECM_syp_bilateral = math.sqrt(ECM_syp)
+    tiempo_bilateral = final_time_bilateral - start_time_bilateral
+    print(f"El error cuadrático medio para lena con ruido gaussiano con filtro bilateral es :{sqrt_ECM_gauss_bilateral}")
+    print(f"El error cuadrático medio para lena con ruido syp con filtro bilateral es :{sqrt_ECM_syp_bilateral}")
+    print(f"la estimación de ruido para lena con ruido gaussiano con filtro bilateral es :{mean_image_gauss_noise_c}")
+    print(f"la estimación de ruido para lena con ruido syp con filtro bilateral es :{mean_image_syp_noise_c}")
+    cv2.imshow("Image filtro bilateral - gauss", image_gauss_bilateral)
+    cv2.waitKey(0)
+    cv2.imshow("Image filtro bilateral - s&p", image_syp_bilateral)
+    cv2.waitKey(0)
+    # d) Filtro nlm (promedios no locales) con h=5, windowSize = 15, searchSize = 25
+    start_time_nlm = time()
+    image_gauss_nlm = cv2.fastNlMeansDenoising(lena_gauss_noisy, 5, 15, 25)
+    final_time_nlm = time()
+    image_syp_nlm = cv2.fastNlMeansDenoising(lena_syp_noisy, 5, 15, 25)
+    image_gauss_noise_d = cv2.absdiff(lena_gauss_noisy,image_gauss_nlm)  # Para poder calcular la estimación de ruido gauss
+    image_syp_noise_d = cv2.absdiff(lena_syp_noisy,image_syp_nlm)  # Para poder calcular la estimación de ruido syp
+    mean_image_gauss_noise_d = np.mean(image_gauss_noise_d)
+    mean_image_syp_noise_d = np.mean(image_syp_noise_d)
+    image_gauss_noise_2d = cv2.absdiff(image_gauss_nlm,lena_gray)  # Para poder calcular el error cuadrático medio de ruido gauss
+    image_syp_noise_2d = cv2.absdiff(image_syp_nlm,lena_gray)  # Para poder calcular el error cuadrático medio de ruido syp
+    ECM_gauss = (np.sum(pow(image_gauss_noise_2d, 2))) / (row * col)
+    ECM_syp = (np.sum(pow(image_syp_noise_2d, 2))) / (row * col)
+    sqrt_ECM_gauss_nlm = math.sqrt(ECM_gauss)
+    sqrt_ECM_syp_nlm = math.sqrt(ECM_syp)
+    tiempo_nlm = final_time_nlm - start_time_nlm
+    print(f"El error cuadrático medio para lena con ruido gaussiano con filtro nlm es :{sqrt_ECM_gauss_nlm}")
+    print(f"El error cuadrático medio para lena con ruido syp con filtro nlm es :{sqrt_ECM_syp_nlm}")
+    print(f"la estimación de ruido para lena con ruido gaussiano con filtro nlm es :{mean_image_gauss_noise_d}")
+    print(f"la estimación de ruido para lena con ruido syp con filtro nlm es :{mean_image_syp_noise_d}\n")
+    cv2.imshow("Image filtro nlm - gauss", image_gauss_nlm)
+    cv2.waitKey(0)
+    cv2.imshow("Image filtro nlm - s&p", image_syp_nlm)
+    cv2.waitKey(0)
+    # tiempos ejecución:
+    print(f"el tiempo de ejecución del filtro gauss es: {tiempo_gauss}")
+    print(f"el tiempo de ejecución del filtro mediana es: {tiempo_median}")
+    print(f"el tiempo de ejecución del filtro bilateral es: {tiempo_bilateral}")
+    print(f"el tiempo de ejecución del filtro nlm es: {tiempo_nlm}")
